@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <h1>Focus Blocker</h1>
+
+  <ul class="sites">
+    <li>
+      <label for="youtube">
+        <span class="name">YouTube</span>
+        <span class="detail">Home feed, comments, recommendations</span>
+      </label>
+      <input type="checkbox" id="youtube" class="switch">
+    </li>
+    <li>
+      <label for="amazon">
+        <span class="name">Amazon</span>
+        <span class="detail">Home page below the top menus</span>
+      </label>
+      <input type="checkbox" id="amazon" class="switch">
+    </li>
+  </ul>
+
+  <p class="hint">Changes apply immediately to open tabs.</p>
+
+  <script src="popup.js"></script>
+</body>
+</html>

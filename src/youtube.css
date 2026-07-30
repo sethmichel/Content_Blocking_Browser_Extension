@@ -1,0 +1,104 @@
+/*
+ * YouTube blocking rules.
+ *
+ * Everything is gated on html[data-cb-yt="on"], which content.js sets at
+ * document_start and removes when YouTube is switched off in the popup.
+ *
+ * Rules come in pairs. The primary selector keys off YouTube's own state elements
+ * (ytd-browse[page-subtype="home"], ytd-watch-flexy) - these are set by YouTube
+ * synchronously as it renders, so blocking is applied the instant content exists.
+ * The backup selector keys off data-cb-path, which content.js maintains from the
+ * URL, so a YouTube rename of one mechanism doesn't take the blocking with it.
+ *
+ * Nothing here touches the masthead (logo, search, create, bell, avatar) or the
+ * guide sidebar - those live outside every selector below.
+ */
+
+/* ========================================================== HOME PAGE FEED == */
+
+/* Primary: keyed off YouTube's page-subtype marker. */
+html[data-cb-yt="on"] ytd-browse[page-subtype="home"] #header,
+html[data-cb-yt="on"] ytd-browse[page-subtype="home"] #contents,
+html[data-cb-yt="on"] ytd-browse[page-subtype="home"] #chips-wrapper,
+html[data-cb-yt="on"] ytd-browse[page-subtype="home"] ytd-rich-grid-renderer,
+html[data-cb-yt="on"] ytd-browse[page-subtype="home"] ytd-feed-filter-chip-bar-renderer,
+
+/* Backup: keyed off the URL. */
+html[data-cb-yt="on"][data-cb-home="1"] #page-manager ytd-browse #contents,
+html[data-cb-yt="on"][data-cb-home="1"] #page-manager ytd-browse ytd-rich-grid-renderer,
+html[data-cb-yt="on"][data-cb-home="1"] #page-manager ytd-browse ytd-feed-filter-chip-bar-renderer {
+  display: none !important;
+}
+
+/* ============================================================= WATCH PAGE == */
+
+/* Right-hand recommendations, including the horizontal tag/chip row above them,
+   and the comment section under the description. */
+html[data-cb-yt="on"] ytd-watch-flexy #related,
+html[data-cb-yt="on"] ytd-watch-flexy #comments,
+html[data-cb-yt="on"] ytd-watch-flexy ytd-comments,
+html[data-cb-yt="on"] ytd-watch-flexy ytd-watch-next-secondary-results-renderer,
+html[data-cb-yt="on"] ytd-watch-flexy yt-related-chip-cloud-renderer,
+html[data-cb-yt="on"] ytd-watch-grid #related,
+html[data-cb-yt="on"] ytd-watch-grid #comments,
+
+/* Backup: keyed off the URL, in case the watch element gets renamed. */
+html[data-cb-yt="on"][data-cb-path="/watch"] #related,
+html[data-cb-yt="on"][data-cb-path="/watch"] #comments,
+html[data-cb-yt="on"][data-cb-path="/watch"] ytd-comments#comments,
+html[data-cb-yt="on"][data-cb-path="/watch"] ytd-watch-next-secondary-results-renderer {
+  display: none !important;
+}
+
+/* With #related gone the right column is empty, so collapse it - unless it is
+   holding live chat or a playlist queue, which are not recommendations. */
+html[data-cb-yt="on"] ytd-watch-flexy #secondary:not(:has(ytd-live-chat-frame)):not(:has(ytd-playlist-panel-renderer)) {
+  display: none !important;
+}
+
+/* ====================================== SHORTS ENTRY IN THE GUIDE SIDEBAR == */
+
+/*
+ * Matched on the /shorts URL rather than on an element name or on the label text
+ * (which is translated). Covers both the expanded sidebar and the collapsed icon
+ * rail. Only the guide is in scope, so the Shorts tab on a channel page is left
+ * alone - that one moves around too much to chase.
+ *
+ * The first selector hides whichever element directly wraps the link, whatever
+ * YouTube happens to call it that month; the second hides the link itself if the
+ * wrapper ever stops being the link's direct parent.
+ */
+html[data-cb-yt="on"] :is(#guide, #guide-inner-content, #mini-guide, ytd-mini-guide-renderer) *:has(> a[href^="/shorts"]),
+html[data-cb-yt="on"] :is(#guide, #guide-inner-content, #mini-guide, ytd-mini-guide-renderer) a[href^="/shorts"],
+html[data-cb-yt="on"] ytd-guide-entry-renderer:has(a[href^="/shorts"]),
+html[data-cb-yt="on"] ytd-mini-guide-entry-renderer:has(a[href^="/shorts"]) {
+  display: none !important;
+}
+
+/* ============================================================ SHORTS PAGES == */
+
+/*
+ * A /shorts/... URL is blanked in place: the URL bar is left alone and the back
+ * button still works, but nothing renders and nothing plays. Two layers again -
+ * the element name, and the URL by itself in case that element gets renamed.
+ *
+ * Note that hiding the player does not stop it: a display:none <video> still plays
+ * audio in Chrome. content.js pauses and mutes it.
+ */
+html[data-cb-yt="on"] ytd-shorts,
+html[data-cb-yt="on"][data-cb-path^="/shorts"] ytd-shorts,
+html[data-cb-yt="on"][data-cb-path^="/shorts"] #page-manager {
+  display: none !important;
+}
+
+/* ==================================================== IN-PLAYER SUGGESTIONS == */
+
+/* The grid of "watch this next" thumbnails on the end screen, the cards that slide
+   in over the video, and the suggestions shown when you pause. */
+html[data-cb-yt="on"] .ytp-endscreen-content,
+html[data-cb-yt="on"] .ytp-ce-element,
+html[data-cb-yt="on"] .ytp-pause-overlay,
+html[data-cb-yt="on"] .ytp-suggestion-set,
+html[data-cb-yt="on"] .ytp-cards-teaser {
+  display: none !important;
+}

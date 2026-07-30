@@ -1,0 +1,45 @@
+/*
+ * Amazon blocking rules.
+ *
+ * Everything is gated on html[data-cb-amz="on"], which content.js sets at
+ * document_start and removes when Amazon is switched off in the popup. Rules
+ * additionally require data-cb-home="1" - only the home page is stripped, so
+ * search results and product pages are left completely alone.
+ *
+ * The goal is "keep the top nav, drop everything below it". Three layers, so no
+ * single Amazon layout change takes the blocking out:
+ *   1. hide the navbar's siblings   - pure CSS, applies before first paint
+ *   2. hide known content containers - pure CSS, named fallback
+ *   3. .cb-blocked                   - content.js walks up from the navbar and
+ *                                      marks every branch that isn't the nav
+ */
+
+/* -- 1. Everything after the navbar in its own container ------------------- */
+/* Exclusions keep the hamburger flyout, cart flyout and the delivery-address
+   dialog working - those render as siblings of the navbar, not inside it. */
+html[data-cb-amz="on"][data-cb-home="1"] #navbar ~ *:not(script):not(style):not(noscript):not(template):not([id^="nav-flyout"]):not([id^="a-popover"]):not([id^="a-modal"]):not([id^="hmenu"]):not(.a-popover) {
+  display: none !important;
+}
+
+/* -- 2. Known home page content containers -------------------------------- */
+html[data-cb-amz="on"][data-cb-home="1"] :is(
+  #desktop-banner,
+  #gw-desktop,
+  #gw-desktop-herotator,
+  [id^="desktop-grid"],
+  [id^="anonCarousel"],
+  #rhf,
+  #rhf-shoveler,
+  #nav-swmslot,
+  #gridRightBg,
+  .gw-desktop,
+  .gw-col,
+  #navFooter
+) {
+  display: none !important;
+}
+
+/* -- 3. Branches the content script identified as "not the navbar" --------- */
+html[data-cb-amz="on"][data-cb-home="1"] .cb-blocked {
+  display: none !important;
+}
