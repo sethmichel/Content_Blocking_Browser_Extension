@@ -1,7 +1,7 @@
 # Focus Blocker
 
 A Brave/Chrome (MV3) extension that strips recommendation feeds and comments out of
-YouTube and Amazon.
+YouTube, Amazon and LinkedIn.
 
 ## Install
 
@@ -10,7 +10,7 @@ YouTube and Amazon.
 3. Click **Load unpacked** and pick this folder (the one containing `manifest.json`)
 4. Pin the extension so its icon is on the toolbar
 
-Reload any YouTube/Amazon tabs that were already open.
+Reload any YouTube/Amazon/LinkedIn tabs that were already open.
 
 ## Use
 
@@ -26,25 +26,28 @@ per site; flipping a switch takes effect immediately in every open tab.
 | YouTube Shorts | `/shorts/…` pages render blank and stay silent | URL and history are untouched, so Back works normally |
 | YouTube watch | Right-hand recommendations + their tag row, comments, end-screen/pause suggestions, in-video cards | Player, title, channel, description, live chat, playlist queue |
 | Amazon home | Everything below the top menus | Search bar, category row, account, orders, cart, hamburger menu |
+| LinkedIn feed | the whole home page
 
-Amazon search results and product pages are untouched.
+Amazon search results and product pages are untouched, as are LinkedIn profiles,
+search, jobs and messaging.
 
 ## How it works
 
 | File | Role |
 | --- | --- |
-| `manifest.json` | Declares the two sites and what gets injected into them |
-| `src/youtube.css`, `src/amazon.css` | The actual blocking. Injected by the browser at `document_start`, before first paint |
-| `src/content.js` | Sets the flag attribute the CSS is gated on, tracks YouTube's client-side navigation, and walks Amazon's DOM as a backup |
-| `src/popup.*` | The two on/off switches |
+| `manifest.json` | Declares the three sites and what gets injected into them |
+| `src/youtube.css`, `src/amazon.css`, `src/linkedin.css` | The actual blocking. Injected by the browser at `document_start`, before first paint |
+| `src/content.js` | Sets the flag attribute the CSS is gated on, tracks YouTube's and LinkedIn's client-side navigation, and walks Amazon's and LinkedIn's DOM as a backup |
+| `src/popup.*` | The three on/off switches |
 
 Robustness comes from layering rather than from any one selector:
 
 - **CSS does the blocking**, so content is suppressed as it appears, however late the
   site loads it. No polling, nothing to "catch".
 - **Every rule is gated on an attribute** (`html[data-cb-yt="on"]` /
-  `html[data-cb-amz="on"]`) that `content.js` sets synchronously at `document_start`.
-  That is what makes always-on CSS toggleable without a flash of unblocked content.
+  `html[data-cb-amz="on"]` / `html[data-cb-li="on"]`) that `content.js` sets
+  synchronously at `document_start`. That is what makes always-on CSS toggleable
+  without a flash of unblocked content.
 - **Page detection is doubled up.** YouTube rules key primarily off YouTube's own
   state elements (`ytd-browse[page-subtype="home"]`, `ytd-watch-flexy`), with a
   URL-derived `data-cb-path` marker on `<html>` as a parallel fallback. Either one
@@ -52,10 +55,15 @@ Robustness comes from layering rather than from any one selector:
 - **Amazon is handled three ways**: hide the navbar's siblings, hide known content
   container ids, and have `content.js` walk up from the navbar marking every branch
   that isn't the nav. The third is structure-agnostic and survives an id reshuffle.
+- **LinkedIn avoids class names where it can.** The middle column is matched both by
+  the share box it contains and by the URL. The two rail modules are matched by name,
+  by the links inside them (`/news/…`, `/games/…`) via `:has()`, and by `content.js`
+  walking up from those same links to the card that sits in the rail. Link targets
+  outlive class names, and unlike the module headings they aren't translated.
 
-On the SPA question from the original notes: a content script is needed on YouTube,
-but only to keep the page marker in sync — the CSS itself never re-runs and never
-needs re-injecting across client-side navigations.
+On the SPA question from the original notes: a content script is needed on YouTube
+and LinkedIn, but only to keep the page marker in sync — the CSS itself never re-runs
+and never needs re-injecting across client-side navigations.
 
 ## If something leaks through
 
@@ -79,9 +87,16 @@ amazon:
     - all home page elements should be gone except the top menus (search bar, site categories like grocery, coupons, todays deals..., my account, my cart, etc...)
     - look at example_images/amazon_example_home_page.png: notice that I've circled the top menu portion of the home page in red, keep that. so you could find the bottom of this and simply block everything under it.
 
+linkedin (added later):
+    - block the home post feed (the posts from around the community).
+    - block the post option (the box where the user goes to make a post).
+    - block the "LinkedIn News" side menu.
+    - block the "Today's puzzles" side menu.
+    - look at example_images/linkedin_example_home_page.png: the areas to block are circled in red. Totally blocked, same as the other sites — not visible at all.
+
 browser: brave
 system: windows 11
-rule: blocking should always be active. but clicking the extension opens a small popup menu showing selectors for youtube and for amazon (1 for each). clicking the selector turns the blocking on and off for that site. 
+rule: blocking should always be active. but clicking the extension opens a small popup menu showing selectors for youtube, amazon and linkedin (1 for each). clicking the selector turns the blocking on and off for that site. 
 
 My assumptions of the design:
 - I assume brave works with manifest v3 (MV3)

@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Focus Blocker",
   "version": "1.0.0",
-  "description": "Strips recommendation feeds and comments out of YouTube and Amazon so you can search, get what you came for, and leave.",
+  "description": "Strips recommendation feeds and comments out of YouTube, Amazon and LinkedIn so you can search, get what you came for, and leave.",
   "permissions": ["storage"],
   "icons": {
     "16": "icons/icon16.png",
@@ -31,6 +31,13 @@
     {
       "matches": ["*://*.amazon.com/*", "*://*.amazon.ca/*"],
       "css": ["src/amazon.css"],
+      "js": ["src/content.js"],
+      "run_at": "document_start",
+      "all_frames": false
+    },
+    {
+      "matches": ["*://*.linkedin.com/*"],
+      "css": ["src/linkedin.css"],
       "js": ["src/content.js"],
       "run_at": "document_start",
       "all_frames": false

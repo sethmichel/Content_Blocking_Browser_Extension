@@ -1,0 +1,85 @@
+/*
+ * LinkedIn blocking rules.
+ *
+ * Everything is gated on html[data-cb-li="on"], which content.js sets at
+ * document_start and removes when LinkedIn is switched off in the popup.
+ *
+ * Four things go: the "Start a post" box, the home feed, LinkedIn News and
+ * Today's puzzles. Kept: the top navigation bar, the left profile card, the
+ * footer links and the messaging overlay.
+ *
+ * Only the feed page is stripped, so profiles, search, jobs and messaging are
+ * left alone. Rules that could match elsewhere are qualified either by
+ * data-cb-home="1" (the URL marker content.js maintains) or by the presence of a
+ * feed-only element. Layers again, so no single LinkedIn rename unblocks a page:
+ *   1. the middle column, recognised by the share box inside it
+ *   2. the middle column, recognised from the URL
+ *   3. the individual pieces of the middle column by name
+ *   4. the rail modules by name
+ *   5. the rail modules by the links they contain
+ *   6. .cb-blocked - content.js walks up to the rail card from the same links
+ */
+
+/* ============================================= POST BOX AND FEED (MIDDLE) == */
+
+/* -- 1. The middle column, keyed off LinkedIn's own feed-only share box ----- */
+/* Structural rather than URL-based, so it holds the instant the column renders
+   even if the marker has not caught up with a client-side navigation yet. */
+html[data-cb-li="on"] main:has([class*="share-box-feed-entry"]),
+
+/* -- 2. The same column, keyed off the URL --------------------------------- */
+html[data-cb-li="on"][data-cb-home="1"] main,
+html[data-cb-li="on"][data-cb-home="1"] .scaffold-layout__main {
+  display: none !important;
+}
+
+/* -- 3. The pieces by name, in case the column wrapper is renamed ----------- */
+html[data-cb-li="on"][data-cb-home="1"] :is(
+  .scaffold-finite-scroll,
+  .feed-shared-update-v2,
+  [data-id^="urn:li:activity"],
+  [data-urn^="urn:li:activity"],
+  .feed-index-sort-border,
+  .feed-follows-recommendation-carousel
+) {
+  display: none !important;
+}
+
+/* The post composer entry point exists only where there is a feed to post into,
+   so it needs no page qualifier of its own. */
+html[data-cb-li="on"] [class*="share-box-feed-entry"] {
+  display: none !important;
+}
+
+/* ============================================= NEWS AND PUZZLES (RIGHT) == */
+
+/* -- 4. The modules by name ------------------------------------------------ */
+html[data-cb-li="on"] :is(
+  #feed-news-module,
+  [id*="news-module"],
+  [class*="news-module"],
+  [id*="games-entrypoint"],
+  [class*="games-entrypoint"],
+  [class*="puzzles"],
+  [data-view-name*="games"]
+) {
+  display: none !important;
+}
+
+/* -- 5. The modules by the links they contain ------------------------------ */
+/* News stories link to /news/..., each puzzle links to /games/..., neither of
+   which depends on a class name or on the module's heading text. Hidden at the
+   card that sits directly in the rail so the whole module goes, not just a row.
+   The messaging overlay is an <aside> too, and a message could quote a news
+   link, so it is excluded by name. */
+html[data-cb-li="on"][data-cb-home="1"]
+  aside:not([id*="msg"]):not([class*="msg-"]) > *:has(:is(a[href*="/news/"], a[href*="/games/"])),
+html[data-cb-li="on"][data-cb-home="1"]
+  .scaffold-layout__aside > *:has(:is(a[href*="/news/"], a[href*="/games/"])) {
+  display: none !important;
+}
+
+/* -- 6. Cards content.js found the same way, for a module nested deeper ----- */
+html[data-cb-li="on"][data-cb-home="1"] .cb-blocked {
+  display: none !important;
+}

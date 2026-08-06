@@ -1,18 +1,21 @@
 /*
- * Focus Blocker - content script. Runs at document_start on YouTube and Amazon.
+ * Focus Blocker - content script. Runs at document_start on YouTube, Amazon and
+ * LinkedIn.
  *
- * The blocking itself lives in youtube.css / amazon.css, which the browser injects
- * before the page paints. Every rule in those files is gated behind a flag attribute
- * on <html>, so this script only has four jobs:
+ * The blocking itself lives in youtube.css / amazon.css / linkedin.css, which the
+ * browser injects before the page paints. Every rule in those files is gated behind
+ * a flag attribute on <html>, so this script only has five jobs:
  *
  *   1. Set the flag immediately, so blocked content never flashes on screen.
  *   2. Clear it if the site has been switched off in the popup (and re-set it live
  *      when the popup is toggled back on).
  *   3. Keep a data-cb-path / data-cb-home marker on <html> in sync with the URL, so
  *      the CSS can tell the home page apart from a watch page even though YouTube
- *      never reloads the document.
+ *      and LinkedIn never reload the document.
  *   4. On the Amazon home page, mark every DOM branch that isn't the top nav, which
  *      backs up the static CSS in case Amazon reshuffles its layout.
+ *   5. On the LinkedIn feed, mark the right-hand rail cards, found by the links
+ *      inside them rather than by class name.
  */
 
 (() => {
@@ -21,10 +24,27 @@
   /* Every module-level constant has to be declared before the setup call below
      reaches it - `const` is not hoisted the way a function declaration is. */
 
-  const DEFAULTS = { youtube: true, amazon: true };
+  const DEFAULTS = { youtube: true, amazon: true, linkedin: true };
+
+  const FLAG_ATTRS = {
+    youtube: "data-cb-yt",
+    amazon: "data-cb-amz",
+    linkedin: "data-cb-li",
+  };
 
   // Amazon's home is "/" when you land on it, "/ref=nav_logo" when you click the logo.
   const AMAZON_HOME = /^\/(ref=[^/]*)?$|^\/gp\/(css\/)?homepage\.html$/;
+
+  // LinkedIn's home is "/feed/"; "/" bounces there when you are signed in.
+  const LINKEDIN_HOME = /^\/(feed\/?)?$/;
+
+  // The right-hand rail. LinkedIn's messaging overlay is an <aside> as well, and a
+  // message can quote a news link, so it is excluded rather than searched.
+  const RAIL = 'aside:not([id*="msg"]):not([class*="msg-"]), .scaffold-layout__aside';
+
+  // The two rail modules, identified by where their contents link to: news stories
+  // to /news/..., each of the day's puzzles to /games/....
+  const RAIL_LINK = 'a[href*="/news/"], a[href*="/games/"]';
 
   // Nav flyouts, popovers and modals get rendered as their own top-level branches.
   // Hiding those would break the hamburger menu and the delivery-address dialog.
@@ -37,7 +57,7 @@
   const SITE = detectSite(location.hostname);
   if (!SITE) return;
 
-  const FLAG_ATTR = SITE === "youtube" ? "data-cb-yt" : "data-cb-amz";
+  const FLAG_ATTR = FLAG_ATTRS[SITE];
 
   withRoot((root) => {
     // Optimistic: assume blocking is on. Reading storage is async, and waiting for it
@@ -49,12 +69,14 @@
     if (SITE === "youtube") silenceShorts();
     watchLocation(root);
     if (SITE === "amazon") hideBranchesOutsideNavbar(root);
+    if (SITE === "linkedin") hideRailModules(root);
     followSettings(root);
   });
 
   function detectSite(host) {
     if (/(^|\.)youtube\.com$/.test(host)) return "youtube";
     if (/(^|\.)amazon\.(com|ca)$/.test(host)) return "amazon";
+    if (/(^|\.)linkedin\.com$/.test(host)) return "linkedin";
     return null;
   }
 
@@ -75,7 +97,9 @@
   /* ---------------------------------------------------------------- location */
 
   function isHome(path) {
-    return SITE === "youtube" ? path === "/" : AMAZON_HOME.test(path);
+    if (SITE === "youtube") return path === "/";
+    if (SITE === "amazon") return AMAZON_HOME.test(path);
+    return LINKEDIN_HOME.test(path);
   }
 
   function isShorts(path) {
@@ -89,7 +113,7 @@
   }
 
   function watchLocation(root) {
-    if (SITE !== "youtube") return; // Amazon does real page loads
+    if (SITE === "amazon") return; // Amazon does real page loads
 
     let last = location.href;
     const check = () => {
@@ -99,13 +123,16 @@
     };
 
     // YouTube fires these itself on every client-side navigation.
-    document.addEventListener("yt-navigate-start", check, true);
-    document.addEventListener("yt-navigate-finish", check, true);
+    if (SITE === "youtube") {
+      document.addEventListener("yt-navigate-start", check, true);
+      document.addEventListener("yt-navigate-finish", check, true);
+    }
     window.addEventListener("popstate", check);
 
-    // Backstop, in case those event names ever change. The primary CSS selectors key
-    // off YouTube's own ytd-browse[page-subtype] / ytd-watch-flexy elements, so this
-    // marker is a second line of defence and a slow poll is plenty.
+    // Backstop, in case those event names ever change, and the only signal there is
+    // for LinkedIn's own client-side routing. Either site's primary CSS selectors key
+    // off elements the site renders itself (ytd-browse[page-subtype], the LinkedIn
+    // share box), so this marker is a second line of defence and a poll is plenty.
     setInterval(check, 400);
   }
 
@@ -191,6 +218,61 @@
     if (KEEP_TAG.test(el.tagName)) return true;
     if (KEEP_ID.test(el.id || "")) return true;
     return el.classList.contains("a-popover");
+  }
+
+  /* ---------------------------------------------------------------- linkedin */
+
+  /*
+   * The right-hand rail: LinkedIn News and Today's puzzles. Each is found from a
+   * link inside it, then hidden at whichever ancestor sits directly in the <aside>,
+   * so the whole card goes rather than one row of it. linkedin.css does the same in
+   * pure CSS; this covers the case where a module ends up nested deeper in the rail
+   * than a direct child.
+   *
+   * The rail arrives after first paint and is rebuilt when LinkedIn routes
+   * client-side, so the search repeats for a while after every URL change.
+   */
+  function hideRailModules(root) {
+    let observer = null;
+    let stop = null;
+    let scheduled = false;
+
+    const run = () => {
+      if (root.getAttribute("data-cb-home") !== "1") return;
+      for (const aside of document.querySelectorAll(RAIL)) {
+        for (const link of aside.querySelectorAll(RAIL_LINK)) {
+          const card = childOf(aside, link);
+          if (card) card.classList.add("cb-blocked");
+        }
+      }
+    };
+
+    const schedule = () => {
+      if (scheduled) return;
+      scheduled = true;
+      requestAnimationFrame(() => {
+        scheduled = false;
+        run();
+      });
+    };
+
+    const watch = () => {
+      run();
+      if (!observer) observer = new MutationObserver(schedule);
+      observer.observe(root, { childList: true, subtree: true });
+      clearTimeout(stop);
+      stop = setTimeout(() => observer.disconnect(), 10000);
+    };
+
+    watch();
+    NAV_HOOKS.push(watch);
+  }
+
+  /* The ancestor of `node` that is a direct child of `parent`, or null. */
+  function childOf(parent, node) {
+    let el = node;
+    while (el && el.parentElement !== parent) el = el.parentElement;
+    return el;
   }
 
   /* ---------------------------------------------------------------- settings */
