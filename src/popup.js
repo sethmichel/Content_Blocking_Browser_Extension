@@ -1,7 +1,7 @@
 /* Popup: one switch per site, backed straight by chrome.storage.local. Content
    scripts listen for storage changes, so toggling here updates open tabs live. */
 
-const DEFAULTS = { youtube: true, amazon: true, linkedin: true };
+const DEFAULTS = { youtube: true, amazon: true, linkedin: true, instagram: true, facebook: true };
 
 chrome.storage.local.get(DEFAULTS, (settings) => {
   for (const site of Object.keys(DEFAULTS)) {

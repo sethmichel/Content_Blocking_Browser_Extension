@@ -1,0 +1,67 @@
+/*
+ * Instagram blocking rules.
+ *
+ * Everything is gated on html[data-cb-ig="on"], which content.js sets at
+ * document_start and removes when Instagram is switched off in the popup.
+ *
+ * The home feed ends after 10 posts, or at Instagram's own "You're all caught up"
+ * notice if that comes first; the suggested posts after it never show. Stories,
+ * the left navigation and the right-hand column are kept, as is every other page.
+ *
+ * The CSS hides; content.js decides what. It marks the posts it lets through
+ * data-cb-ok, the posts past the end data-cb-hide, and the end of the feed plus
+ * its ancestors data-cb-end.
+ *
+ * The Reels tab plays 10 reels, then is blocked until there has been a 10 minute
+ * break. A reel sent in a message opens at /p/... and is never touched.
+ */
+
+/* Every post on the home feed until content.js lets it through. Keyed off the URL
+   so that it holds from first paint, before content.js has seen a single post. */
+html[data-cb-ig="on"][data-cb-home="1"] main article:not([data-cb-ok]),
+
+/* Posts content.js has ruled out. Not keyed off the URL, so they stay hidden
+   behind a post opened over the feed, which changes the URL to /p/.... */
+html[data-cb-ig="on"] [data-cb-hide],
+
+/* Everything after the end of the feed - suggested posts, the spinner - including
+   whatever Instagram adds there later, before it is painted. */
+html[data-cb-ig="on"] [data-cb-end] ~ :not([data-cb-ok]):not(:has([data-cb-ok])) {
+  display: none !important;
+}
+
+/* A note under the last post when the feed was ended by the count. Instagram's own
+   notice does the job when it was ended there. */
+html[data-cb-ig="on"] [data-cb-last]::after {
+  content: attr(data-cb-last);
+  display: block;
+  padding: 32px 0;
+  text-align: center;
+  font-size: 14px;
+  color: #8e8e8e;
+}
+
+/* The Reels tab, unless content.js has marked it "ok": hidden while the reel count
+   is still being read from storage, and once the count is used up. Matched on the
+   URL, so it holds from first paint. Spelled out rather than ^="/reels", which
+   would also catch a profile called something like reelsfan. The <video> rule backs up
+   <main> in case the player ever moves out of it. */
+html[data-cb-ig="on"]:is([data-cb-path="/reels"], [data-cb-path^="/reels/"]):not([data-cb-reels="ok"]) main,
+html[data-cb-ig="on"]:is([data-cb-path="/reels"], [data-cb-path^="/reels/"]):not([data-cb-reels="ok"]) video {
+  display: none !important;
+}
+
+/* What shows in the tab's place once the count is used up. */
+html[data-cb-ig="on"]:is([data-cb-path="/reels"], [data-cb-path^="/reels/"])[data-cb-reels="over"]::after {
+  content: attr(data-cb-note);
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2147483647;
+  max-width: 80vw;
+  text-align: center;
+  font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: #8e8e8e;
+  pointer-events: none;
+}

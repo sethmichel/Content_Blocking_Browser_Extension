@@ -1,0 +1,41 @@
+/*
+ * Facebook blocking rules.
+ *
+ * Everything is gated on html[data-cb-fb="on"], which content.js sets at
+ * document_start and removes when Facebook is switched off in the popup.
+ *
+ * The home feed ends after 10 posts. The post box, stories, both side columns and
+ * every other page are kept.
+ *
+ * Facebook's class names are generated and change constantly, so nothing here uses
+ * them. Each post is a div[aria-posinset] - its place in the feed, there for screen
+ * readers - inside [role="main"], the middle column.
+ *
+ * The CSS hides; content.js decides what. It marks the posts it lets through
+ * data-cb-ok, the posts past the end data-cb-hide, and the last post plus its
+ * ancestors data-cb-end.
+ */
+
+/* Every post on the home feed until content.js lets it through. Anything nested in
+   a post that is let through is left alone. */
+html[data-cb-fb="on"][data-cb-home="1"] [role="main"] [aria-posinset]:not([data-cb-ok]):not([data-cb-ok] *),
+
+/* Posts content.js has ruled out. Not keyed off the URL, so they stay hidden
+   behind a photo or post opened over the feed. */
+html[data-cb-fb="on"] [data-cb-hide],
+
+/* Everything after the last post - the wrappers of the posts after it, the loader -
+   including whatever Facebook adds there later, before it is painted. */
+html[data-cb-fb="on"] [data-cb-end] ~ :not([data-cb-ok]):not(:has([data-cb-ok])) {
+  display: none !important;
+}
+
+/* A note under the last post. */
+html[data-cb-fb="on"] [data-cb-last]::after {
+  content: attr(data-cb-last);
+  display: block;
+  padding: 32px 0;
+  text-align: center;
+  font-size: 15px;
+  color: #8a8d91;
+}

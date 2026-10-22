@@ -1,7 +1,7 @@
 # Focus Blocker
 
 A Brave/Chrome (MV3) extension that strips recommendation feeds and comments out of
-YouTube, Amazon and LinkedIn.
+YouTube, Amazon and LinkedIn, and cuts the Instagram and Facebook home feeds short.
 
 ## Install
 
@@ -10,7 +10,7 @@ YouTube, Amazon and LinkedIn.
 3. Click **Load unpacked** and pick this folder (the one containing `manifest.json`)
 4. Pin the extension so its icon is on the toolbar
 
-Reload any YouTube/Amazon/LinkedIn tabs that were already open.
+Reload any YouTube/Amazon/LinkedIn/Instagram/Facebook tabs that were already open.
 
 ## Use
 
@@ -26,19 +26,26 @@ per site; flipping a switch takes effect immediately in every open tab.
 | YouTube Shorts | `/shorts/…` pages render blank and stay silent | URL and history are untouched, so Back works normally |
 | YouTube watch | Right-hand recommendations + their tag row, comments, end-screen/pause suggestions, in-video cards | Player, title, channel, description, live chat, playlist queue |
 | Amazon home | Everything below the top menus | Search bar, category row, account, orders, cart, hamburger menu |
-| LinkedIn feed | the whole home page
+| LinkedIn feed | Posts, the "Start a post" box, LinkedIn News, Today's puzzles | Top nav, left profile card, footer links, messaging |
+| Instagram home | Every post after the 10th, or after "You're all caught up" if that comes first, including the suggested posts below it | Stories, the first posts, left nav, right column |
+| Instagram Reels tab | Every reel after the 10th, until 10 minutes have passed since the last one counted | Reels sent in messages, which open as `/p/…` and are never counted |
+| Facebook home | Every post after the 10th | Post box, stories, the first posts, both side columns |
 
 Amazon search results and product pages are untouched, as are LinkedIn profiles,
-search, jobs and messaging.
+search, jobs and messaging, and every Instagram and Facebook page other than the
+home feed and Instagram's Reels tab. The post count starts over on every page load;
+change it in `FEED_CAP` at the top of `src/content.js`. The reel count is kept in
+extension storage, so reloading or opening a new tab doesn't reset it; change it in
+`REELS_CAP` and `REELS_BREAK`.
 
 ## How it works
 
 | File | Role |
 | --- | --- |
-| `manifest.json` | Declares the three sites and what gets injected into them |
-| `src/youtube.css`, `src/amazon.css`, `src/linkedin.css` | The actual blocking. Injected by the browser at `document_start`, before first paint |
-| `src/content.js` | Sets the flag attribute the CSS is gated on, tracks YouTube's and LinkedIn's client-side navigation, and walks Amazon's and LinkedIn's DOM as a backup |
-| `src/popup.*` | The three on/off switches |
+| `manifest.json` | Declares the five sites and what gets injected into them |
+| `src/<site>.css` | The actual blocking. Injected by the browser at `document_start`, before first paint |
+| `src/content.js` | Sets the flag attribute the CSS is gated on, tracks YouTube's and LinkedIn's client-side navigation, and walks Amazon's and LinkedIn's DOM as a backup, and decides which Instagram/Facebook posts make the cut |
+| `src/popup.*` | The five on/off switches |
 
 Robustness comes from layering rather than from any one selector:
 
@@ -60,6 +67,17 @@ Robustness comes from layering rather than from any one selector:
   by the links inside them (`/news/…`, `/games/…`) via `:has()`, and by `content.js`
   walking up from those same links to the card that sits in the rail. Link targets
   outlive class names, and unlike the module headings they aren't translated.
+- **Instagram and Facebook are capped, not blanked.** Their class names are
+  machine-generated and change constantly, so nothing keys off them. The CSS hides
+  every home-feed post (Instagram's `main article`, Facebook's `[aria-posinset]`,
+  the screen-reader numbering of each post) from first paint; `content.js` marks
+  the first ones `data-cb-ok` and the rest `data-cb-hide`. Allowed posts are
+  remembered by permalink / feed position, because both sites delete posts that
+  scroll out of view and rebuild them on the way back. Once the feed ends,
+  `content.js` marks the end and its ancestors `data-cb-end` and a sibling selector
+  (`[data-cb-end] ~ *`) hides everything after it, including whatever arrives
+  later and the infinite-scroll spinner, so the site stops fetching posts that would
+  never be shown. Instagram's "You're all caught up" notice is found by its text.
 
 On the SPA question from the original notes: a content script is needed on YouTube
 and LinkedIn, but only to keep the page marker in sync — the CSS itself never re-runs
